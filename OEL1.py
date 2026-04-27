@@ -20,35 +20,38 @@ st.set_page_config(page_title="ECG & HRV Analysis Dashboard", layout="wide")
 st.markdown("""
 <style>
     .stApp { background-color: #f4f7fc !important; }
+    .main .block-container { padding-top: 1rem !important; padding-bottom: 0rem !important; max-width: 95% !important; }
+    h1 { font-size: 1.8rem !important; margin-bottom: 0.2rem !important; }
+    h3 { font-size: 1.1rem !important; margin-bottom: 0.5rem !important; margin-top: 0.5rem !important; }
+    .stSubheader { margin-bottom: -1rem !important; }
     .reportview-container { background: #f4f7fc; }
     h1, h2, h3, h4, p, span, div { color: #1e293b; font-family: 'Inter', sans-serif; }
     .metric-card {
         background: #ffffff; 
-        border-radius: 16px; 
-        padding: 20px; 
+        border-radius: 12px; 
+        padding: 10px; 
         border: none;
-        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05), 0 4px 6px -2px rgba(0, 0, 0, 0.025);
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
         display: flex;
         justify-content: space-between;
         align-items: center;
-        transition: transform 0.2s ease, box-shadow 0.2s ease;
     }
-    .metric-card:hover { transform: translateY(-3px); box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04); }
-    .metric-icon { font-size: 36px; }
+    .metric-icon { font-size: 24px; }
     .metric-text { text-align: right; }
-    .metric-value { font-size: 28px; font-weight: 800; color: #4f46e5; }
-    .metric-label { font-size: 12px; color: #64748b; text-transform: uppercase; font-weight: 700; margin-top: 5px; letter-spacing: 0.5px; }
+    .metric-value { font-size: 18px; font-weight: 800; color: #4f46e5; }
+    .metric-label { font-size: 9px; color: #64748b; text-transform: uppercase; font-weight: 700; margin-top: 2px; }
+    [data-testid="stMetricValue"] { font-size: 1.5rem !important; }
 </style>
 """, unsafe_allow_html=True)
 
-st.title("ECG and HRV Analysis Dashboard")
-st.markdown("Interactive clinical dashboard for time-domain, frequency-domain, and non-linear HRV analysis.")
+# st.title("ECG and HRV Analysis Dashboard")
+# st.markdown("Interactive clinical dashboard for time-domain, frequency-domain, and non-linear HRV analysis.")
 
 # ==========================================
 # 2. SIDEBAR INTERACTIVITY (FILTERS & ZOOM)
 # ==========================================
 st.sidebar.header("📂 Data Source")
-uploaded_file = st.sidebar.file_uploader("Upload custom ECG (.mat)", type=["mat"])
+uploaded_file = st.sidebar.file_uploader("Upload custom ECG (.mat, .dat)", type=["mat", "dat"])
 custom_fs = st.sidebar.number_input("Sampling Frequency (Hz)", value=360, min_value=1, step=1)
 
 st.sidebar.markdown("---")
@@ -120,35 +123,46 @@ def load_data():
 
 if uploaded_file is not None:
     try:
-        mat_data = sio.loadmat(uploaded_file)
-        valid_keys = [k for k in mat_data.keys() if not k.startswith('_')]
+        file_ext = uploaded_file.name.split('.')[-1].lower()
         
-        best_arr = None
-        max_size = 0
-        
-        for k in valid_keys:
-            data = mat_data[k]
+        if file_ext == "mat":
+            mat_data = sio.loadmat(uploaded_file)
+            valid_keys = [k for k in mat_data.keys() if not k.startswith('_')]
             
-            # Handle structured MATLAB arrays (like the MathWorks ECGData format)
-            if isinstance(data, np.ndarray) and data.dtype.names:
-                if 'Data' in data.dtype.names:
-                    data = data['Data']
-                elif 'val' in data.dtype.names:
-                    data = data['val']
+            best_arr = None
+            max_size = 0
             
-            # Deep unwrap nested MATLAB structs/objects
-            while isinstance(data, np.ndarray) and data.size == 1 and data.dtype == object:
-                data = data.item()
+            for k in valid_keys:
+                data = mat_data[k]
                 
-            if isinstance(data, np.ndarray):
-                arr = np.squeeze(data)
-                if arr.size > max_size:
-                    best_arr = arr
-                    max_size = arr.size
+                # Handle structured MATLAB arrays (like the MathWorks ECGData format)
+                if isinstance(data, np.ndarray) and data.dtype.names:
+                    if 'Data' in data.dtype.names:
+                        data = data['Data']
+                    elif 'val' in data.dtype.names:
+                        data = data['val']
+                
+                # Deep unwrap nested MATLAB structs/objects
+                while isinstance(data, np.ndarray) and data.size == 1 and data.dtype == object:
+                    data = data.item()
                     
-        if best_arr is not None and max_size > 100:
+                if isinstance(data, np.ndarray):
+                    arr = np.squeeze(data)
+                    if arr.size > max_size:
+                        best_arr = arr
+                        max_size = arr.size
             ecg_raw = best_arr
-            
+        else:
+            # Handle .dat file (Assume 16-bit integers or floats)
+            file_bytes = uploaded_file.read()
+            try:
+                # Try reading as 16-bit signed integers (common for medical datasets)
+                ecg_raw = np.frombuffer(file_bytes, dtype=np.int16).astype(float)
+            except:
+                # Fallback to float32
+                ecg_raw = np.frombuffer(file_bytes, dtype=np.float32).astype(float)
+        
+        if ecg_raw is not None and ecg_raw.size > 100:
             # If the data is multi-channel (e.g. 12-lead ECG), extract just the first lead
             if ecg_raw.ndim > 1:
                 if ecg_raw.shape[0] > ecg_raw.shape[1]:
@@ -159,17 +173,17 @@ if uploaded_file is not None:
             ecg_raw = ecg_raw.astype(float)
             fs = custom_fs
             
-            # Truncate to 10 seconds
+            # Truncate to 10 seconds for performance
             max_samples = int(10 * fs)
             ecg_raw = ecg_raw[:max_samples]
             
             t = np.arange(len(ecg_raw)) / fs
-            st.sidebar.success(f"Successfully loaded {len(ecg_raw)} samples (Max 10s).")
+            st.sidebar.success(f"Successfully loaded {len(ecg_raw)} samples from .{file_ext}")
         else:
-            st.error("Uploaded MAT file contains no valid numerical data keys.")
+            st.error(f"Uploaded {file_ext} file contains no valid numerical data.")
             st.stop()
     except Exception as e:
-        st.error(f"Critical error processing MAT file: {e}")
+        st.error(f"Critical error processing file: {e}")
         st.stop()
 else:
     t, ecg_raw, fs = load_data()
@@ -269,9 +283,9 @@ visible_peaks = peaks[(peaks >= start_idx) & (peaks < end_idx)]
 fig_ecg.add_trace(go.Scatter(x=t[visible_peaks], y=ecg_filtered[visible_peaks], 
                              mode='markers', name='R-Peaks', marker=dict(color='#ec4899', size=6)))
 
-fig_ecg.update_layout(height=350, margin=dict(l=20, r=20, t=30, b=20),
-                      xaxis_title="Time (s)", yaxis_title="Amplitude (mV)",
-                      plot_bgcolor='#ffffff', paper_bgcolor='#ffffff', font=dict(color='#1e293b'), hovermode="x unified")
+fig_ecg.update_layout(height=250, margin=dict(l=10, r=10, t=10, b=10),
+                      xaxis_title="Time (s)", yaxis_title="mV",
+                      plot_bgcolor='#ffffff', paper_bgcolor='#ffffff', font=dict(color='#1e293b', size=9), hovermode="x unified")
 fig_ecg.update_xaxes(showgrid=True, gridwidth=1, gridcolor='#f1f5f9', zeroline=False)
 fig_ecg.update_yaxes(showgrid=True, gridwidth=1, gridcolor='#f1f5f9', zeroline=False)
 st.plotly_chart(fig_ecg, use_container_width=True)
@@ -298,9 +312,9 @@ with col2:
     fig_poincare = go.Figure()
     fig_poincare.add_trace(go.Scatter(x=rr_n, y=rr_n1, mode='markers', 
                                       marker=dict(color='#6366f1', size=5, opacity=0.6), name='RR Pairs'))
-    fig_poincare.update_layout(height=300, margin=dict(l=20, r=20, t=20, b=20),
+    fig_poincare.update_layout(height=220, margin=dict(l=10, r=10, t=10, b=10),
                                xaxis_title="RR_n (ms)", yaxis_title="RR_n+1 (ms)",
-                               plot_bgcolor='#ffffff', paper_bgcolor='#ffffff', font=dict(color='#1e293b'))
+                               plot_bgcolor='#ffffff', paper_bgcolor='#ffffff', font=dict(color='#1e293b', size=9))
     fig_poincare.update_xaxes(showgrid=True, gridcolor='#f1f5f9', zeroline=False)
     fig_poincare.update_yaxes(showgrid=True, gridcolor='#f1f5f9', zeroline=False)
     st.plotly_chart(fig_poincare, use_container_width=True)
@@ -312,9 +326,9 @@ with col3:
     fig_psd.add_trace(go.Scatter(x=f[lf_mask], y=psd[lf_mask], fill='tozeroy', mode='none', fillcolor='rgba(99, 102, 241, 0.35)', name='LF Band'))
     fig_psd.add_trace(go.Scatter(x=f[hf_mask], y=psd[hf_mask], fill='tozeroy', mode='none', fillcolor='rgba(236, 72, 153, 0.35)', name='HF Band'))
     
-    fig_psd.update_layout(height=300, margin=dict(l=20, r=20, t=20, b=20),
-                          xaxis_title="Frequency (Hz)", yaxis_title="Power Density",
-                          plot_bgcolor='#ffffff', paper_bgcolor='#ffffff', font=dict(color='#1e293b'), xaxis=dict(range=[0, 0.6], gridcolor='#f1f5f9', zeroline=False), yaxis=dict(gridcolor='#f1f5f9', zeroline=False))
+    fig_psd.update_layout(height=220, margin=dict(l=10, r=10, t=10, b=10),
+                          xaxis_title="Hz", yaxis_title="Power",
+                          plot_bgcolor='#ffffff', paper_bgcolor='#ffffff', font=dict(color='#1e293b', size=9), xaxis=dict(range=[0, 0.6], gridcolor='#f1f5f9', zeroline=False), yaxis=dict(gridcolor='#f1f5f9', zeroline=False))
     st.plotly_chart(fig_psd, use_container_width=True)
 
 
@@ -323,9 +337,9 @@ st.subheader("Temporal HRV Dynamics (RR Tachogram)")
 fig_tach = go.Figure()
 fig_tach.add_trace(go.Scatter(x=t_peaks[1:]/60, y=rr_intervals, mode='lines+markers', 
                               line=dict(color='#6366f1', width=1.5), marker=dict(size=4, color='#ec4899'), name='RR Interval'))
-fig_tach.update_layout(height=250, margin=dict(l=20, r=20, t=20, b=20),
-                       xaxis_title="Time (Minutes)", yaxis_title="RR Interval (ms)",
-                       plot_bgcolor='#ffffff', paper_bgcolor='#ffffff', font=dict(color='#1e293b'), hovermode="x unified")
+fig_tach.update_layout(height=180, margin=dict(l=10, r=10, t=10, b=10),
+                       xaxis_title="Min", yaxis_title="RR (ms)",
+                       plot_bgcolor='#ffffff', paper_bgcolor='#ffffff', font=dict(color='#1e293b', size=9), hovermode="x unified")
 fig_tach.update_xaxes(showgrid=True, gridcolor='#f1f5f9', zeroline=False)
 fig_tach.update_yaxes(showgrid=True, gridcolor='#f1f5f9', zeroline=False)
 st.plotly_chart(fig_tach, use_container_width=True)
