@@ -51,8 +51,9 @@ st.markdown("""
 # 2. SIDEBAR INTERACTIVITY (FILTERS & ZOOM)
 # ==========================================
 st.sidebar.header("📂 Data Source")
-uploaded_file = st.sidebar.file_uploader("Upload custom ECG (.mat, .dat)", type=["mat", "dat"])
+uploaded_file = st.sidebar.file_uploader("Upload custom ECG (.mat)", type=["mat"])
 custom_fs = st.sidebar.number_input("Sampling Frequency (Hz)", value=360, min_value=1, step=1)
+load_duration = st.sidebar.slider("Load Duration (Seconds)", 5, 300, 10, help="Total seconds of data to load from MAT file")
 
 st.sidebar.markdown("---")
 st.sidebar.header("👤 Patient Demographics")
@@ -123,46 +124,35 @@ def load_data():
 
 if uploaded_file is not None:
     try:
-        file_ext = uploaded_file.name.split('.')[-1].lower()
+        mat_data = sio.loadmat(uploaded_file)
+        valid_keys = [k for k in mat_data.keys() if not k.startswith('_')]
         
-        if file_ext == "mat":
-            mat_data = sio.loadmat(uploaded_file)
-            valid_keys = [k for k in mat_data.keys() if not k.startswith('_')]
+        best_arr = None
+        max_size = 0
+        
+        for k in valid_keys:
+            data = mat_data[k]
             
-            best_arr = None
-            max_size = 0
+            # Handle structured MATLAB arrays (like the MathWorks ECGData format)
+            if isinstance(data, np.ndarray) and data.dtype.names:
+                if 'Data' in data.dtype.names:
+                    data = data['Data']
+                elif 'val' in data.dtype.names:
+                    data = data['val']
             
-            for k in valid_keys:
-                data = mat_data[k]
+            # Deep unwrap nested MATLAB structs/objects
+            while isinstance(data, np.ndarray) and data.size == 1 and data.dtype == object:
+                data = data.item()
                 
-                # Handle structured MATLAB arrays (like the MathWorks ECGData format)
-                if isinstance(data, np.ndarray) and data.dtype.names:
-                    if 'Data' in data.dtype.names:
-                        data = data['Data']
-                    elif 'val' in data.dtype.names:
-                        data = data['val']
-                
-                # Deep unwrap nested MATLAB structs/objects
-                while isinstance(data, np.ndarray) and data.size == 1 and data.dtype == object:
-                    data = data.item()
+            if isinstance(data, np.ndarray):
+                arr = np.squeeze(data)
+                if arr.size > max_size:
+                    best_arr = arr
+                    max_size = arr.size
                     
-                if isinstance(data, np.ndarray):
-                    arr = np.squeeze(data)
-                    if arr.size > max_size:
-                        best_arr = arr
-                        max_size = arr.size
+        if best_arr is not None and max_size > 100:
             ecg_raw = best_arr
-        else:
-            # Handle .dat file (Assume 16-bit integers or floats)
-            file_bytes = uploaded_file.read()
-            try:
-                # Try reading as 16-bit signed integers (common for medical datasets)
-                ecg_raw = np.frombuffer(file_bytes, dtype=np.int16).astype(float)
-            except:
-                # Fallback to float32
-                ecg_raw = np.frombuffer(file_bytes, dtype=np.float32).astype(float)
-        
-        if ecg_raw is not None and ecg_raw.size > 100:
+            
             # If the data is multi-channel (e.g. 12-lead ECG), extract just the first lead
             if ecg_raw.ndim > 1:
                 if ecg_raw.shape[0] > ecg_raw.shape[1]:
@@ -173,17 +163,17 @@ if uploaded_file is not None:
             ecg_raw = ecg_raw.astype(float)
             fs = custom_fs
             
-            # Truncate to 10 seconds for performance
-            max_samples = int(10 * fs)
+            # Truncate based on user preference
+            max_samples = int(load_duration * fs)
             ecg_raw = ecg_raw[:max_samples]
             
             t = np.arange(len(ecg_raw)) / fs
-            st.sidebar.success(f"Successfully loaded {len(ecg_raw)} samples from .{file_ext}")
+            st.sidebar.success(f"Successfully loaded {len(ecg_raw)} samples ({load_duration}s).")
         else:
-            st.error(f"Uploaded {file_ext} file contains no valid numerical data.")
+            st.error("Uploaded MAT file contains no valid numerical data keys.")
             st.stop()
     except Exception as e:
-        st.error(f"Critical error processing file: {e}")
+        st.error(f"Critical error processing MAT file: {e}")
         st.stop()
 else:
     t, ecg_raw, fs = load_data()
