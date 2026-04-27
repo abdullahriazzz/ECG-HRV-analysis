@@ -44,8 +44,8 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# st.title("ECG and HRV Analysis Dashboard")
-# st.markdown("Interactive clinical dashboard for time-domain, frequency-domain, and non-linear HRV analysis.")
+st.title("ECG and HRV Analysis Dashboard")
+st.markdown("Interactive clinical dashboard for time-domain, frequency-domain, and non-linear HRV analysis.")
 
 # ==========================================
 # 2. SIDEBAR INTERACTIVITY (FILTERS & ZOOM)
