@@ -15,7 +15,7 @@ A professional-grade medical clinical reporting tool for ECG signal processing a
 | :---: | :---: |
 | ![Dashboard 1](screenshots/1.png) | ![Dashboard 2](screenshots/2.png) |
 
-| Spectral Analysis | RR Tachogram |
+| RR Tachogram | Comprehensive heart rate variability (HRV) analysis dashboard featuring time-domain metrics, non-linear Poincaré distribution, and power spectral density frequency analysis. |
 | :---: | :---: |
 | ![Dashboard 3](screenshots/3.png) | ![Dashboard 4](screenshots/4.png) |
 
