@@ -19,6 +19,11 @@ A professional-grade medical clinical reporting tool for ECG signal processing a
 | :---: | :---: |
 | ![Dashboard 3](screenshots/3.png) | ![Dashboard 4](screenshots/4.png) |
 
+### Patient Record Entry
+![Patient Demographics](screenshots/5.png)
+*Patient demographics input panel displaying name, age, gender, and unique patient ID for clinical record entry.*
+
+
 ## Video Demonstration
 🎥 **[Watch the Dashboard Working Video](Dashboard%20working.mp4)**
 
