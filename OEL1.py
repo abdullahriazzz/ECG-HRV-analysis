@@ -21,7 +21,19 @@ st.markdown("""
 <style>
     .stApp { background-color: #f4f7fc !important; }
     .main .block-container { padding-top: 1rem !important; padding-bottom: 0rem !important; max-width: 95% !important; }
-    h1 { font-size: 1.8rem !important; margin-bottom: 0.2rem !important; }
+    .main-title {
+        font-size: 2.2rem !important; 
+        font-weight: 800 !important;
+        background: linear-gradient(90deg, #1e293b 0%, #4f46e5 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        margin-bottom: 0.1rem !important;
+    }
+    .sub-title {
+        font-size: 1rem !important;
+        color: #64748b !important;
+        margin-bottom: 1rem !important;
+    }
     h3 { font-size: 1.1rem !important; margin-bottom: 0.5rem !important; margin-top: 0.5rem !important; }
     .stSubheader { margin-bottom: -1rem !important; }
     .reportview-container { background: #f4f7fc; }
@@ -30,7 +42,7 @@ st.markdown("""
         background: #ffffff; 
         border-radius: 12px; 
         padding: 10px; 
-        border: none;
+        border: 1px solid #e2e8f0;
         box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
         display: flex;
         justify-content: space-between;
@@ -41,11 +53,21 @@ st.markdown("""
     .metric-value { font-size: 18px; font-weight: 800; color: #4f46e5; }
     .metric-label { font-size: 9px; color: #64748b; text-transform: uppercase; font-weight: 700; margin-top: 2px; }
     [data-testid="stMetricValue"] { font-size: 1.5rem !important; }
+    .status-tag {
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-size: 12px;
+        font-weight: 600;
+        display: inline-block;
+        margin-bottom: 10px;
+    }
+    .status-normal { background: #dcfce7; color: #166534; border: 1px solid #bbf7d0; }
+    .status-loaded { background: #e0e7ff; color: #3730a3; border: 1px solid #c7d2fe; }
 </style>
 """, unsafe_allow_html=True)
 
-st.title("ECG and HRV Analysis Dashboard")
-st.markdown("Interactive clinical dashboard for time-domain, frequency-domain, and non-linear HRV analysis.")
+st.markdown('<div class="main-title">ECG & HRV Clinical Intelligence Dashboard</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-title">Advanced diagnostics suite for real-time cardiac signal analysis and HRV metric quantification.</div>', unsafe_allow_html=True)
 
 # ==========================================
 # 2. SIDEBAR INTERACTIVITY (FILTERS & ZOOM)
@@ -259,14 +281,21 @@ shannon_entropy = stats.entropy(prob) if len(prob) > 0 else 0
 # ==========================================
 
 # --- ROW 1: Filtered ECG Waveform ---
-st.subheader("Live Filtered ECG Waveform")
+if uploaded_file is not None:
+    st.markdown('<div class="status-tag status-loaded">🔵 LOADED ECG FILE: ' + uploaded_file.name + '</div>', unsafe_allow_html=True)
+    ecg_label = "Loaded ECG Signal"
+else:
+    st.markdown('<div class="status-tag status-normal">🟢 MONITORING: NORMAL ECG WAVE</div>', unsafe_allow_html=True)
+    ecg_label = "Normal ECG Wave (Synthetic)"
+
+st.subheader(f"Diagnostic Waveform: {ecg_label}")
 # Slice data based on zoom slider
 start_idx = int(zoom_range[0] * fs)
 end_idx = int(zoom_range[1] * fs)
 
 fig_ecg = go.Figure()
 fig_ecg.add_trace(go.Scatter(x=t[start_idx:end_idx], y=ecg_filtered[start_idx:end_idx], 
-                             mode='lines', name='Filtered ECG', line=dict(color='#6366f1', width=2)))
+                             mode='lines', name=ecg_label, line=dict(color='#6366f1', width=2)))
 
 # Add R-peak markers within the zoomed window
 visible_peaks = peaks[(peaks >= start_idx) & (peaks < end_idx)]
