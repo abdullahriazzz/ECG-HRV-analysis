@@ -11,8 +11,7 @@ A professional-grade medical clinical reporting tool for ECG signal processing a
 
 ## Dashboard Gallery
 ### Interface & Diagnostics
-| Dashboard Overview | HRV analysis dashboard with time-domain, Poincaré, and spectral features.
-. |
+| Dashboard Overview |HRV analysis dashboard with time-domain, Poincaré, and spectral features.|
 | :---: | :---: |
 | ![Dashboard 1](screenshots/1.png) | ![Dashboard 2](screenshots/2.png) |
 
