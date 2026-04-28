@@ -9,14 +9,19 @@ A professional-grade medical clinical reporting tool for ECG signal processing a
 - **Clinical Reporting**: Automated 2-page PDF report generation with diagnostic waveforms.
 - **Visualizations**: Interactive Plotly charts for ECG, PSD, and RR Tachograms.
 
-## Visual Output
-### Diagnostic Waveforms
-| ECG Waveform | Power Spectral Density |
+## Dashboard Gallery
+### Interface & Diagnostics
+| Dashboard Overview | Signal Processing |
 | :---: | :---: |
-| ![ECG Plot](screenshots/ecg_plot.png) | ![PSD Plot](screenshots/psd_plot.png) |
+| ![Dashboard 1](screenshots/1.png) | ![Dashboard 2](screenshots/2.png) |
 
-### RR Interval Tachogram
-![Tachogram Plot](screenshots/tachogram_plot.png)
+| Spectral Analysis | RR Tachogram |
+| :---: | :---: |
+| ![Dashboard 3](screenshots/3.png) | ![Dashboard 4](screenshots/4.png) |
+
+## Video Demonstration
+🎥 **[Watch the Dashboard Working Video](Dashboard%20working.mp4)**
+
 
 ## Files
 - `OEL1.py`: Core application code.
